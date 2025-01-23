@@ -1,0 +1,93 @@
+#this is the config I have running at ctf.cbr.quest
+#this uses nginx as a docker container to route to 4 other docker containers of free ctfs
+#this will be linked with other files in this repo for how to recreate this exact setup with your own fqdn as a container of containers
+
+#ctf1.cbr.quest is badstore
+#ctf2.cbr.quest is dvwa
+#ctf3.cbr.quest is juice world
+#ctf4.cbr.quest is phpmyadmin
+
+
+events {}
+
+http {
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
+    # Upstream configurations
+    upstream badstore_upstream {
+        zone badstore_zone 64k;
+        server ctf1:80 resolve;
+    }
+
+    upstream dvwa_upstream {
+        zone dvwa_zone 64k;
+        server ctf2:80 resolve;
+    }
+
+    upstream juice_shop_upstream {
+        zone juice_shop_zone 64k;
+        server ctf3:3000 resolve;
+    }
+
+    upstream phpmyadmin_upstream {
+        zone phpmyadmin_zone 64k;
+        server ctf4:80 resolve;
+    }
+
+    # Badstore configuration
+    server {
+        listen 80;
+        server_name ctf1.cbr.quest;
+
+        location / {
+            proxy_pass http://badstore_upstream;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+    }
+
+    # DVWA configuration
+    server {
+        listen 80;
+        server_name ctf2.cbr.quest;
+
+        location / {
+            proxy_pass http://dvwa_upstream;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+    # Juice Shop configuration
+    server {
+        listen 80;
+        server_name ctf3.cbr.quest;
+
+        location / {
+            proxy_pass http://juice_shop_upstream;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+    # phpMyAdmin configuration
+    server {
+        listen 80;
+        server_name ctf4.cbr.quest;
+
+        location / {
+            proxy_pass http://phpmyadmin_upstream;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
