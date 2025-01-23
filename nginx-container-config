@@ -1,0 +1,39 @@
+#nginx config file for docker containers on internal docker network for ctf1.cbr.quest with an nginx rp and a badstore conainer image
+#can be found at the FQDN ctf1.cbr.quest
+#hosted on DO droplet
+#todo: add other ctf containers wtih their own FQDNs
+
+#key takeaway - docker wouldn't resolve interanl IP on the nginx startup from the config file
+#after many hours of struggling, the fix ended up being adding the upstream section and allocating shared memory for DNS
+#badstore container is joined to the same interanl docker ctf_network network
+
+events {}
+
+http {
+    # Use Docker's internal DNS resolver for runtime hostname resolution
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
+    # Define the upstream block with shared memory
+    upstream badstore_upstream {
+        zone shared_upstream 64k; # Allocate shared memory for DNS resolution
+        server badstore_ctf:80 resolve; # Dynamically resolve DNS for badstore_ctf
+    }
+
+    server {
+        listen 80;
+        server_name ctf1.cbr.quest;
+
+        location / {
+            proxy_pass http://badstore_upstream; # Use the upstream block
+            proxy_set_header Host $host; # Forward the original hostname
+            proxy_set_header X-Real-IP $remote_addr; # Forward client IP
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Add client IP chain
+            proxy_set_header X-Forwarded-Proto $scheme; # Pass HTTP/HTTPS scheme
+
+            # Retry logic
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 5; # Retry up to 5 times
+            proxy_next_upstream_timeout 10s; # Timeout for retries
+        }
+    }
+}
